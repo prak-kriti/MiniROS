@@ -1,20 +1,24 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
 import os
+from motor.motor_asyncio import AsyncIOMotorClient
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mini_ros.db")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+DB_NAME     = os.getenv("DB_NAME", "mini_ros")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+_client: AsyncIOMotorClient | None = None
 
 
 def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    return _client[DB_NAME]
+
+
+async def connect_db():
+    global _client
+    _client = AsyncIOMotorClient(MONGODB_URI)
+    await _client.admin.command("ping")   # fail fast if URI is wrong
+    print(f"MongoDB connected — db: {DB_NAME}")
+
+
+async def close_db():
+    global _client
+    if _client:
+        _client.close()

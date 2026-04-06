@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from jose import JWTError
+from bson import ObjectId
+from datetime import datetime
 
 from database import get_db
-from db_models import User
 from auth_utils import hash_password, verify_password, create_access_token, decode_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -28,52 +28,54 @@ class LoginRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/signup")
-def signup(req: SignupRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == req.email).first():
+async def signup(req: SignupRequest, db=Depends(get_db)):
+    if await db.users.find_one({"email": req.email}):
         raise HTTPException(400, "Email already registered")
-    if db.query(User).filter(User.username == req.username).first():
+    if await db.users.find_one({"username": req.username}):
         raise HTTPException(400, "Username already taken")
-    user = User(
-        email=req.email,
-        username=req.username,
-        hashed_password=hash_password(req.password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    token = create_access_token({"sub": str(user.id), "email": user.email})
+
+    result = await db.users.insert_one({
+        "email": req.email,
+        "username": req.username,
+        "hashed_password": hash_password(req.password),
+        "created_at": datetime.utcnow(),
+    })
+    user_id = str(result.inserted_id)
+    token = create_access_token({"sub": user_id, "email": req.email})
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": {"id": user.id, "email": user.email, "username": user.username},
+        "user": {"id": user_id, "email": req.email, "username": req.username},
     }
 
 
 @router.post("/login")
-def login(req: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == req.email).first()
-    if not user or not verify_password(req.password, user.hashed_password):
+async def login(req: LoginRequest, db=Depends(get_db)):
+    doc = await db.users.find_one({"email": req.email})
+    if not doc or not verify_password(req.password, doc["hashed_password"]):
         raise HTTPException(401, "Invalid email or password")
-    token = create_access_token({"sub": str(user.id), "email": user.email})
+    user_id = str(doc["_id"])
+    token = create_access_token({"sub": user_id, "email": doc["email"]})
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": {"id": user.id, "email": user.email, "username": user.username},
+        "user": {"id": user_id, "email": doc["email"], "username": doc["username"]},
     }
 
 
 # ── Dependency: current authenticated user ────────────────────────────────────
 
-def get_current_user(
+async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),
-    db: Session = Depends(get_db),
+    db=Depends(get_db),
 ):
     try:
         payload = decode_token(credentials.credentials)
-        user_id = int(payload["sub"])
-    except (JWTError, KeyError, ValueError):
+        user_id = payload["sub"]
+        doc = await db.users.find_one({"_id": ObjectId(user_id)})
+    except (JWTError, KeyError, Exception):
         raise HTTPException(401, "Invalid or expired token")
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    if not doc:
         raise HTTPException(401, "User not found")
-    return user
+    doc["id"] = str(doc.pop("_id"))
+    return doc

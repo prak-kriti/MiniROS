@@ -3,23 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { addDevice } from '../api';
 import Navbar from '../components/Navbar';
 
-const S = {
-  page: { background: '#0f1117', minHeight: '100vh', color: '#eee', fontFamily: 'sans-serif' },
-  body: { padding: '40px', display: 'flex', justifyContent: 'center' },
-  card: { background: '#1e2130', borderRadius: '14px', padding: '40px', width: '100%', maxWidth: '480px', border: '1px solid #2a2d3a' },
-  title: { fontSize: '22px', fontWeight: '700', marginBottom: '6px' },
-  sub: { color: '#888', fontSize: '14px', marginBottom: '32px' },
-  label: { fontSize: '13px', color: '#aaa', marginBottom: '6px', display: 'block' },
-  input: { width: '100%', padding: '10px 14px', borderRadius: '8px', background: '#111827', border: '1px solid #374151', color: '#eee', fontSize: '14px', boxSizing: 'border-box', outline: 'none' },
-  hint: { fontSize: '12px', color: '#555', marginTop: '6px' },
-  field: { marginBottom: '24px' },
-  actions: { display: 'flex', gap: '12px', marginTop: '8px' },
-  saveBtn: { flex: 1, padding: '12px', borderRadius: '8px', background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: '600' },
-  cancelBtn: { flex: 1, padding: '12px', borderRadius: '8px', background: 'transparent', color: '#888', border: '1px solid #374151', cursor: 'pointer', fontSize: '15px' },
-  error: { background: '#3d1a1a', color: '#f87171', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '16px' },
-  success: { background: '#1a3d2b', color: '#4ade80', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '16px' },
-};
-
 export default function AddDevicePage() {
   const navigate = useNavigate();
   const [deviceName, setDeviceName] = useState('');
@@ -28,7 +11,10 @@ export default function AddDevicePage() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!deviceName.trim()) { setError('Device name is required'); return; }
+    if (!deviceName.trim()) {
+      setError('Device name is required');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -42,39 +28,56 @@ export default function AddDevicePage() {
   };
 
   return (
-    <div style={S.page}>
+    <div className="app-shell">
       <Navbar />
-      <div style={S.body}>
-        <div style={S.card}>
-          <h2 style={S.title}>Add New Device</h2>
-          <p style={S.sub}>Register a ROS robot to start collecting its telemetry data.</p>
+      <main className="page-content">
+        <section className="summary-banner panel">
+          <div>
+            <span className="eyebrow">Device Registration</span>
+            <h1 className="page-title" style={{ marginTop: '16px' }}>Add a robot to the Mini-ROS fleet.</h1>
+            <p className="page-subtitle" style={{ marginTop: '12px', maxWidth: '60ch' }}>
+              Use a clear device name so telemetry history, dashboard views, and future multi-robot workflows stay organized.
+            </p>
+          </div>
+          <div className="hero-metrics">
+            <div className="hero-metric">
+              <strong>ROS 2</strong>
+              <span className="stat-caption">Edge-ready naming</span>
+            </div>
+          </div>
+        </section>
 
-          {error && <div style={S.error}>{error}</div>}
+        <section className="panel" style={{ padding: '28px', maxWidth: '720px' }}>
+          <span className="eyebrow">New Robot</span>
+          <h2 className="section-title" style={{ marginTop: '16px' }}>Register Device</h2>
+          <p className="section-copy" style={{ marginTop: '10px' }}>
+            This creates a dashboard entry for your robot and prepares it for telemetry storage and live inspection.
+          </p>
 
-          <form onSubmit={submit}>
-            <div style={S.field}>
-              <label style={S.label}>Device Name</label>
+          {error && <div className="alert alert-error" style={{ marginTop: '18px' }}>{error}</div>}
+
+          <form className="auth-form" onSubmit={submit} style={{ marginTop: '22px' }}>
+            <div className="field">
+              <label>Device Name</label>
               <input
-                style={S.input}
                 type="text"
                 value={deviceName}
-                onChange={e => setDeviceName(e.target.value)}
-                placeholder="e.g. LFR-001, Rover Alpha"
+                onChange={(e) => setDeviceName(e.target.value)}
+                placeholder="Example: LFR-001 or Rover Alpha"
                 required
                 autoFocus
               />
-              <p style={S.hint}>A friendly name to identify this robot in your dashboard.</p>
             </div>
-
-            <div style={S.actions}>
-              <button style={S.cancelBtn} type="button" onClick={() => navigate('/devices')}>Cancel</button>
-              <button style={S.saveBtn} type="submit" disabled={loading}>
-                {loading ? 'Adding…' : 'Add Device'}
+            <p className="form-note">Choose a human-friendly name that will make sense in telemetry tables and dashboard widgets.</p>
+            <div className="button-row">
+              <button className="ghost-button" type="button" onClick={() => navigate('/devices')}>Cancel</button>
+              <button className="button" type="submit" disabled={loading}>
+                {loading ? 'Registering...' : 'Add Device'}
               </button>
             </div>
           </form>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }

@@ -2,38 +2,73 @@ export default function AIInsights({ latest }) {
   if (!latest?.ai) return null;
 
   const { insights, anomalies, trend, health_score } = latest.ai;
+  const levelColor = { ok: '#79e49d', info: '#72c7ff', warning: '#ffb44d', critical: '#ff7d72' };
 
-  const levelColor = { ok: '#4ade80', info: '#60a5fa', warning: '#fbbf24', critical: '#f87171' };
+  const formatValue = (value) => {
+    if (value == null) return '';
+    if (typeof value === 'number') return value.toFixed(2);
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.map(formatValue).join(', ');
+    if (typeof value === 'object') {
+      if ('direction' in value || 'slope' in value) {
+        const parts = [];
+        if (value.direction) parts.push(value.direction);
+        if (typeof value.slope === 'number') parts.push(`slope ${value.slope.toFixed(4)}`);
+        return parts.join(' ');
+      }
+      return Object.entries(value)
+        .map(([key, nested]) => `${key} ${formatValue(nested)}`.trim())
+        .join(', ');
+    }
+    return String(value);
+  };
+
+  const trendText =
+    trend == null
+      ? ''
+      : typeof trend === 'string'
+        ? trend
+        : Object.entries(trend)
+            .map(([key, value]) => `${key}: ${formatValue(value)}`)
+            .join(' | ');
 
   return (
-    <div style={{ background: '#1e2130', borderRadius: '10px', padding: '16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <h3 style={{ margin: 0, fontSize: '14px', color: '#aaa' }}>AI Insights</h3>
-        <span style={{ fontSize: '13px', color: '#fbbf24' }}>
+    <section className="panel" style={{ padding: '22px' }}>
+      <div className="section-heading">
+        <div>
+          <h3 style={{ margin: 0, fontFamily: 'var(--sans)', letterSpacing: '-0.03em' }}>AI Insights</h3>
+          <p className="section-copy" style={{ marginTop: '8px' }}>
+            Runtime interpretation layer for anomalies, trends, and system condition.
+          </p>
+        </div>
+        <span className="floating-tag" style={{ color: '#ffb44d' }}>
           System Health: {health_score}/100
         </span>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {insights.map((insight, i) => (
-          <div key={i} style={{
-            padding: '6px 12px',
-            borderRadius: '20px',
-            background: 'rgba(255,255,255,0.05)',
-            borderLeft: `3px solid ${levelColor[insight.level] || '#666'}`,
-            fontSize: '13px',
-            color: '#ccc'
-          }}>
+      <div className="insight-list">
+        {(insights ?? []).map((insight, i) => (
+          <div
+            key={i}
+            className="insight-chip"
+            style={{ borderLeft: `4px solid ${levelColor[insight.level] || '#7fa1a6'}` }}
+          >
             {insight.msg}
           </div>
         ))}
       </div>
 
       {anomalies?.length > 0 && (
-        <div style={{ marginTop: '12px', fontSize: '12px', color: '#f87171' }}>
-          ⚠ {anomalies.length} anomaly detected in recent data
+        <div className="alert alert-error" style={{ marginTop: '14px' }}>
+          {anomalies.length} anomaly signal{anomalies.length > 1 ? 's' : ''} detected in recent data.
         </div>
       )}
-    </div>
+
+      {trendText && (
+        <p className="form-note" style={{ marginTop: '14px' }}>
+          Trend summary: {trendText}
+        </p>
+      )}
+    </section>
   );
 }

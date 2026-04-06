@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'sensor_publisher = telemetry_pkg.sensor_publisher:main',
+            'delivery_robot_publisher = telemetry_pkg.delivery_robot_publisher:main',
             'command_subscriber = telemetry_pkg.command_subscriber:main',
             'bridge_agent = telemetry_pkg.bridge_agent:main',
         ],

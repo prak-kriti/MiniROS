@@ -17,8 +17,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     axios.get(`${API_URL}/telemetry/history?limit=60`)
-      .then(res => setTelemetry(res.data.data))
-      .catch(err => console.error('History load failed:', err));
+      .then((res) => setTelemetry(res.data.data))
+      .catch((err) => console.error('History load failed:', err));
   }, []);
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function DashboardPage() {
     if (lastMessage.type === 'telemetry') {
       const record = lastMessage.data;
       setLatest(record);
-      setTelemetry(prev => [...prev.slice(-99), record]);
+      setTelemetry((prev) => [...prev.slice(-99), record]);
     } else if (lastMessage.type === 'history') {
       setTelemetry(lastMessage.data);
     }
@@ -34,53 +34,60 @@ export default function DashboardPage() {
 
   const sendCommand = (action) => {
     axios.post(`${API_URL}/command`, { robot_id: 'lfr_001', action, params: {} })
-      .catch(err => console.error('Command failed:', err));
+      .catch((err) => console.error('Command failed:', err));
   };
 
-  return (
-    <div style={{ fontFamily: 'sans-serif', background: '#0f1117', minHeight: '100vh', color: '#eee' }}>
-      <Navbar />
-      <div style={{ padding: '24px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Live Robot Dashboard — LFR</h2>
-          <span style={{
-            padding: '4px 14px', borderRadius: '20px',
-            background: connected ? '#1a3d2b' : '#3d1a1a',
-            color: connected ? '#4ade80' : '#f87171',
-            fontSize: '13px',
-          }}>
-            {connected ? '● Live' : '○ Disconnected'}
-          </span>
-        </div>
+  const stats = latest ? [
+    {
+      label: 'Line State',
+      value: latest.line_state?.replace('_', ' ') ?? '--',
+      color: latest.line_state === 'lost_line' ? '#ff7d72' : latest.line_state === 'on_line' ? '#79e49d' : '#ffb44d',
+    },
+    { label: 'PID Error', value: latest.pid_error?.toFixed(2) ?? '--', color: '#72c7ff' },
+    { label: 'Motor L / R', value: `${latest.motor_left} / ${latest.motor_right}`, color: '#1ed0b5' },
+    { label: 'Battery', value: `${latest.battery_pct?.toFixed(0)}%`, color: latest.battery_pct < 20 ? '#ff7d72' : '#79e49d' },
+    { label: 'Distance', value: `${latest.distance_cm?.toFixed(0)} cm`, color: '#ffb44d' },
+  ] : [];
 
-        {/* Stats row */}
-        {latest && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
-            {[
-              { label: 'Line State', value: latest.line_state?.replace('_', ' ') ?? '—', color: latest.line_state === 'lost_line' ? '#f87171' : latest.line_state === 'on_line' ? '#4ade80' : '#fbbf24' },
-              { label: 'PID Error', value: latest.pid_error?.toFixed(2) ?? '—', color: '#60a5fa' },
-              { label: 'Motor L / R', value: `${latest.motor_left} / ${latest.motor_right}`, color: '#a78bfa' },
-              { label: 'Battery', value: `${latest.battery_pct?.toFixed(0)}%`, color: latest.battery_pct < 20 ? '#f87171' : '#4ade80' },
-              { label: 'Distance', value: `${latest.distance_cm?.toFixed(0)} cm`, color: '#fbbf24' },
-            ].map(stat => (
-              <div key={stat.label} style={{ background: '#1e2130', borderRadius: '10px', padding: '16px' }}>
-                <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>{stat.label}</div>
-                <div style={{ fontSize: '20px', fontWeight: '600', color: stat.color }}>{stat.value}</div>
-              </div>
-            ))}
+  return (
+    <div className="app-shell">
+      <Navbar />
+      <main className="page-content">
+        <section className="dashboard-banner panel">
+          <div className="page-header">
+            <div>
+              <span className="eyebrow">Live Monitoring</span>
+              <h1 className="page-title" style={{ marginTop: '16px' }}>Real-time robot telemetry and command orchestration.</h1>
+              <p className="page-subtitle" style={{ marginTop: '12px', maxWidth: '56ch' }}>
+                Watch the edge stream update in real time, inspect AI insight summaries, and dispatch commands back to the robot.
+              </p>
+            </div>
+            <span className="floating-tag" style={{ color: connected ? '#79e49d' : '#ff7d72' }}>
+              {connected ? 'Live WebSocket Connected' : 'WebSocket Disconnected'}
+            </span>
           </div>
+        </section>
+
+        {latest && (
+          <section className="metric-grid">
+            {stats.map((stat) => (
+              <article key={stat.label} className="metric-card panel">
+                <div className="metric-label">{stat.label}</div>
+                <div className="metric-value" style={{ color: stat.color }}>{stat.value}</div>
+              </article>
+            ))}
+          </section>
         )}
 
         <IRSensors sensors={latest?.ir_sensors} />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '20px' }}>
+        <section className="dashboard-grid">
           <TelemetryChart data={telemetry} />
           <ControlPanel onCommand={sendCommand} />
-        </div>
+        </section>
 
         <AIInsights latest={latest} />
-      </div>
+      </main>
     </div>
   );
 }

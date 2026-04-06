@@ -1,7 +1,7 @@
 """
 FastAPI Cloud Backend
-- Auth (JWT signup/login)
-- Devices CRUD + device data storage
+- Auth (JWT signup/login) via MongoDB
+- Devices CRUD + device data storage via MongoDB
 - Telemetry: receives from robot, broadcasts via WebSocket, runs AI analysis
 """
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -14,13 +14,9 @@ from typing import List
 
 from models import TelemetryData, CommandRequest
 from ai_module import AIAnalyzer
-from database import engine
-import db_models
+from database import connect_db, close_db  # noqa: F401
 from routers import auth as auth_router
 from routers import devices as devices_router
-
-# Create all DB tables on startup
-db_models.Base.metadata.create_all(bind=engine)
 
 # In-memory state for real-time telemetry
 telemetry_history = deque(maxlen=500)
@@ -32,8 +28,10 @@ ai_analyzer = AIAnalyzer()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Backend started — DB tables ready, waiting for robot data...")
+    await connect_db()
+    print("Backend ready — MongoDB connected, waiting for robot data...")
     yield
+    await close_db()
     print("Backend shutting down")
 
 
@@ -74,8 +72,7 @@ def get_history(limit: int = 60):
 
 @app.post("/command")
 async def send_command(cmd: CommandRequest):
-    robot_id = cmd.robot_id
-    pending_commands.setdefault(robot_id, []).append({
+    pending_commands.setdefault(cmd.robot_id, []).append({
         "action": cmd.action,
         "params": cmd.params,
         "queued_at": datetime.utcnow().isoformat(),
@@ -98,8 +95,7 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_json({"type": "history", "data": list(telemetry_history)[-10:]})
         while True:
             msg = await websocket.receive_text()
-            data = json.loads(msg)
-            if data.get("type") == "ping":
+            if json.loads(msg).get("type") == "ping":
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
         connected_clients.remove(websocket)
@@ -112,8 +108,8 @@ async def broadcast(data: dict):
             await client.send_json({"type": "telemetry", "data": data})
         except Exception:
             dead.append(client)
-    for client in dead:
-        connected_clients.remove(client)
+    for c in dead:
+        connected_clients.remove(c)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

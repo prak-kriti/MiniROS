@@ -1,10 +1,9 @@
-import json
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from bson import ObjectId
+from datetime import datetime
 
 from database import get_db
-from db_models import Device, DeviceData
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -20,68 +19,81 @@ class DeviceDataCreate(BaseModel):
     data: dict
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _fmt_device(d):
+    return {
+        "id": str(d["_id"]),
+        "device_name": d["device_name"],
+        "user_id": d["user_id"],
+        "created_at": d["created_at"],
+    }
+
+
 # ── Device CRUD ───────────────────────────────────────────────────────────────
 
 @router.get("")
-def list_devices(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    devices = db.query(Device).filter(Device.user_id == user.id).order_by(Device.created_at.desc()).all()
-    return [
-        {"id": d.id, "device_name": d.device_name, "user_id": d.user_id, "created_at": d.created_at}
-        for d in devices
-    ]
+async def list_devices(db=Depends(get_db), user=Depends(get_current_user)):
+    cursor = db.devices.find({"user_id": user["id"]}).sort("created_at", -1)
+    return [_fmt_device(d) async for d in cursor]
 
 
 @router.post("", status_code=201)
-def add_device(req: DeviceCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    device = Device(device_name=req.device_name, user_id=user.id)
-    db.add(device)
-    db.commit()
-    db.refresh(device)
-    return {"id": device.id, "device_name": device.device_name, "user_id": device.user_id, "created_at": device.created_at}
+async def add_device(req: DeviceCreate, db=Depends(get_db), user=Depends(get_current_user)):
+    doc = {
+        "device_name": req.device_name,
+        "user_id": user["id"],
+        "created_at": datetime.utcnow(),
+    }
+    result = await db.devices.insert_one(doc)
+    return {
+        "id": str(result.inserted_id),
+        "device_name": req.device_name,
+        "user_id": user["id"],
+        "created_at": doc["created_at"],
+    }
 
 
 @router.delete("/{device_id}")
-def delete_device(device_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    device = db.query(Device).filter(Device.id == device_id, Device.user_id == user.id).first()
-    if not device:
+async def delete_device(device_id: str, db=Depends(get_db), user=Depends(get_current_user)):
+    result = await db.devices.delete_one({"_id": ObjectId(device_id), "user_id": user["id"]})
+    if result.deleted_count == 0:
         raise HTTPException(404, "Device not found")
-    db.delete(device)
-    db.commit()
+    await db.device_data.delete_many({"device_id": device_id})
     return {"message": "Device deleted"}
 
 
 # ── Device data ───────────────────────────────────────────────────────────────
 
 @router.post("/{device_id}/data", status_code=201)
-def push_device_data(device_id: int, req: DeviceDataCreate, db: Session = Depends(get_db)):
+async def push_device_data(device_id: str, req: DeviceDataCreate, db=Depends(get_db)):
     """Robots POST telemetry here. No auth required so robots can push without tokens."""
-    device = db.query(Device).filter(Device.id == device_id).first()
-    if not device:
+    if not await db.devices.find_one({"_id": ObjectId(device_id)}):
         raise HTTPException(404, "Device not found")
-    entry = DeviceData(device_id=device_id, payload=json.dumps(req.data))
-    db.add(entry)
-    db.commit()
-    return {"message": "Data stored", "id": entry.id}
+    result = await db.device_data.insert_one({
+        "device_id": device_id,
+        "payload": req.data,
+        "timestamp": datetime.utcnow(),
+    })
+    return {"message": "Data stored", "id": str(result.inserted_id)}
 
 
 @router.get("/{device_id}/data")
-def get_device_data(
-    device_id: int,
+async def get_device_data(
+    device_id: str,
     limit: int = 100,
-    db: Session = Depends(get_db),
+    db=Depends(get_db),
     user=Depends(get_current_user),
 ):
-    device = db.query(Device).filter(Device.id == device_id, Device.user_id == user.id).first()
-    if not device:
+    if not await db.devices.find_one({"_id": ObjectId(device_id), "user_id": user["id"]}):
         raise HTTPException(404, "Device not found")
-    rows = (
-        db.query(DeviceData)
-        .filter(DeviceData.device_id == device_id)
-        .order_by(DeviceData.timestamp.desc())
-        .limit(limit)
-        .all()
-    )
+    cursor = db.device_data.find({"device_id": device_id}).sort("timestamp", -1).limit(limit)
     return [
-        {"id": r.id, "device_id": r.device_id, "data": json.loads(r.payload), "timestamp": r.timestamp}
-        for r in rows
+        {
+            "id": str(r["_id"]),
+            "device_id": r["device_id"],
+            "data": r["payload"],
+            "timestamp": r["timestamp"],
+        }
+        async for r in cursor
     ]

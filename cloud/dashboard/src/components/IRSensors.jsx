@@ -1,25 +1,20 @@
 export default function IRSensors({ sensors }) {
   if (!sensors) return null;
+
   return (
-    <div style={{ background: '#1e2130', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
-      <div style={{ fontSize: '13px', color: '#888', marginBottom: '10px' }}>IR sensor array</div>
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+    <section className="sensor-panel panel">
+      <div className="sensor-title">IR Sensor Array</div>
+      <p className="sensor-caption">Line-tracking state from left to right across the five-sensor strip.</p>
+      <div className="sensor-strip">
         {sensors.map((val, i) => (
-          <div key={i} style={{
-            width: '44px', height: '44px', borderRadius: '8px',
-            background: val ? '#1a1a1a' : '#f5f5f5',
-            border: `2px solid ${val ? '#888' : '#ddd'}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '11px', color: val ? '#888' : '#333',
-            transition: 'all 0.15s'
-          }}>
+          <div key={i} className={`sensor-node ${val ? 'active' : 'inactive'}`}>
             S{i}
           </div>
         ))}
       </div>
-      <div style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginTop: '6px' }}>
-        black = line detected
+      <div className="form-note" style={{ textAlign: 'center', marginTop: '10px' }}>
+        Active sensors indicate line detection.
       </div>
-    </div>
+    </section>
   );
 }

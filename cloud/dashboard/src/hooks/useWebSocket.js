@@ -4,9 +4,15 @@ export function useWebSocket(url) {
   const [lastMessage, setLastMessage] = useState(null);
   const [connected, setConnected] = useState(false);
   const ws = useRef(null);
+  const reconnectTimer = useRef(null);
+  const shouldReconnect = useRef(true);
 
   useEffect(() => {
+    shouldReconnect.current = true;
+
     function connect() {
+      if (!shouldReconnect.current) return;
+
       ws.current = new WebSocket(url);
 
       ws.current.onopen = () => {
@@ -21,18 +27,29 @@ export function useWebSocket(url) {
 
       ws.current.onclose = () => {
         setConnected(false);
-        // Auto-reconnect after 2 seconds
-        setTimeout(connect, 2000);
+        if (!shouldReconnect.current) return;
+        reconnectTimer.current = setTimeout(connect, 2000);
       };
 
       ws.current.onerror = (err) => {
-        console.error('WebSocket error:', err);
-        ws.current.close();
+        // Browsers emit a generic error event when the socket closes
+        // before the handshake completes, e.g. while the backend is starting.
+        if (ws.current?.readyState !== WebSocket.CLOSED) {
+          console.warn('WebSocket handshake issue, retrying...', err);
+          ws.current.close();
+        }
       };
     }
 
     connect();
-    return () => ws.current?.close();
+
+    return () => {
+      shouldReconnect.current = false;
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current);
+      }
+      ws.current?.close();
+    };
   }, [url]);
 
   const send = useCallback((data) => {
