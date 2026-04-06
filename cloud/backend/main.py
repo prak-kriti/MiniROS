@@ -1,114 +1,101 @@
 """
 FastAPI Cloud Backend
-- Receives telemetry from the robot
-- Broadcasts to dashboard via WebSocket
-- Queues commands for the robot to poll
-- Runs AI analysis on incoming data
+- Auth (JWT signup/login)
+- Devices CRUD + device data storage
+- Telemetry: receives from robot, broadcasts via WebSocket, runs AI analysis
 """
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import asyncio
 import json
 from datetime import datetime
 from collections import deque
 from typing import List
+
 from models import TelemetryData, CommandRequest
 from ai_module import AIAnalyzer
+from database import engine
+import db_models
+from routers import auth as auth_router
+from routers import devices as devices_router
 
-# In-memory storage (replace with Redis/PostgreSQL for production)
-telemetry_history = deque(maxlen=500)   # last 500 readings
-pending_commands = {}                   # robot_id -> list of commands
-connected_clients: List[WebSocket] = [] # dashboard WebSocket connections
+# Create all DB tables on startup
+db_models.Base.metadata.create_all(bind=engine)
+
+# In-memory state for real-time telemetry
+telemetry_history = deque(maxlen=500)
+pending_commands: dict = {}
+connected_clients: List[WebSocket] = []
 
 ai_analyzer = AIAnalyzer()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Backend started — waiting for robot data...")
+    print("Backend started — DB tables ready, waiting for robot data...")
     yield
     print("Backend shutting down")
 
 
 app = FastAPI(title="Mini ROS Cloud Backend", lifespan=lifespan)
 
-# Allow React dashboard to connect (CORS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten this in production
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ── Routers ───────────────────────────────────────────────────────────────────
 
-# ── Telemetry endpoint ────────────────────────────────────────────────────────
+app.include_router(auth_router.router)
+app.include_router(devices_router.router)
+
+
+# ── Telemetry (robot → cloud) ─────────────────────────────────────────────────
 
 @app.post("/telemetry")
 async def receive_telemetry(data: TelemetryData):
-    """Robot POSTs telemetry here every second"""
     record = data.dict()
-    record['server_time'] = datetime.utcnow().isoformat()
-    
-    # Run AI analysis
+    record["server_time"] = datetime.utcnow().isoformat()
     ai_result = ai_analyzer.analyze(record)
-    record['ai'] = ai_result
-    
-    # Store in memory
+    record["ai"] = ai_result
     telemetry_history.append(record)
-    
-    # Broadcast to all connected dashboard clients
     await broadcast(record)
-    
     return {"status": "ok", "ai": ai_result}
 
 
 @app.get("/telemetry/history")
 def get_history(limit: int = 60):
-    """Dashboard fetches recent history on page load"""
-    data = list(telemetry_history)[-limit:]
-    return {"data": data}
+    return {"data": list(telemetry_history)[-limit:]}
 
 
-# ── Command endpoints ─────────────────────────────────────────────────────────
+# ── Commands (dashboard → robot) ──────────────────────────────────────────────
 
 @app.post("/command")
 async def send_command(cmd: CommandRequest):
-    """Dashboard POSTs a command here; robot polls and picks it up"""
     robot_id = cmd.robot_id
-    if robot_id not in pending_commands:
-        pending_commands[robot_id] = []
-    
-    pending_commands[robot_id].append({
+    pending_commands.setdefault(robot_id, []).append({
         "action": cmd.action,
         "params": cmd.params,
-        "queued_at": datetime.utcnow().isoformat()
+        "queued_at": datetime.utcnow().isoformat(),
     })
-    
     return {"status": "queued", "action": cmd.action}
 
 
 @app.get("/commands/pending")
 def get_pending_commands(robot_id: str = "lfr_001"):
-    """Robot polls this endpoint to get its pending commands"""
-    commands = pending_commands.pop(robot_id, [])
-    return {"commands": commands}
+    return {"commands": pending_commands.pop(robot_id, [])}
 
 
-# ── WebSocket for dashboard ───────────────────────────────────────────────────
+# ── WebSocket ─────────────────────────────────────────────────────────────────
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     connected_clients.append(websocket)
-    print(f"Dashboard connected. Total clients: {len(connected_clients)}")
-    
     try:
-        # Send last 10 readings as initial state
-        history = list(telemetry_history)[-10:]
-        await websocket.send_json({"type": "history", "data": history})
-        
-        # Keep connection open, handle incoming messages
+        await websocket.send_json({"type": "history", "data": list(telemetry_history)[-10:]})
         while True:
             msg = await websocket.receive_text()
             data = json.loads(msg)
@@ -116,22 +103,20 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
         connected_clients.remove(websocket)
-        print(f"Dashboard disconnected. Total clients: {len(connected_clients)}")
 
 
 async def broadcast(data: dict):
-    """Send data to all connected dashboard WebSocket clients"""
-    disconnected = []
+    dead = []
     for client in connected_clients:
         try:
             await client.send_json({"type": "telemetry", "data": data})
         except Exception:
-            disconnected.append(client)
-    for client in disconnected:
+            dead.append(client)
+    for client in dead:
         connected_clients.remove(client)
 
 
-# ── Health check ──────────────────────────────────────────────────────────────
+# ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health():
@@ -139,5 +124,5 @@ def health():
         "status": "ok",
         "telemetry_count": len(telemetry_history),
         "connected_dashboards": len(connected_clients),
-        "robots_with_pending_cmds": list(pending_commands.keys())
+        "robots_with_pending_cmds": list(pending_commands.keys()),
     }
