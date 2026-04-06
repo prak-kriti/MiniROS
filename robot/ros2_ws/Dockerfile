@@ -16,6 +16,7 @@ RUN source /opt/ros/humble/setup.bash \
   && colcon build
 
 COPY start-robot.sh /start-robot.sh
-RUN chmod +x /start-robot.sh
+RUN sed -i 's/\r$//' /start-robot.sh \
+  && chmod +x /start-robot.sh
 
 CMD ["/start-robot.sh"]
