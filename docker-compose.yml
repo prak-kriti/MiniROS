@@ -1,7 +1,7 @@
 services:
   backend:
     build:
-      context: ./backend
+      context: ./cloud/backend
     ports:
       - "8000:8000"
     environment:
@@ -10,7 +10,7 @@ services:
 
   dashboard:
     build:
-      context: ./dashboard
+      context: ./cloud/dashboard
     ports:
       - "5173:5173"
     environment:
@@ -21,7 +21,7 @@ services:
 
   robot:
     build:
-      context: ../robot/ros2_ws
+      context: ./robot/ros2_ws
     environment:
       CLOUD_URL: http://backend:8000
     depends_on:
