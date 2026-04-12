@@ -106,7 +106,7 @@ export default function DevicesPage() {
                       <td>{fmt(device.created_at)}</td>
                       <td>
                         <div className="button-row">
-                          <button className="ghost-button" onClick={() => navigate(`/devices/${device.id}/data`)}>Open Data</button>
+                          <button className="ghost-button" onClick={() => navigate(`/devices/${device.id}/data`)}>Live Dashboard</button>
                           <button className="danger-button" onClick={() => handleDelete(device.id, device.device_name)}>Delete</button>
                         </div>
                       </td>

@@ -16,6 +16,9 @@ services:
     environment:
       VITE_API_URL: http://localhost:8000
       VITE_WS_URL: ws://localhost:8000/ws
+    volumes:
+      - ./dashboard:/app
+      - /app/node_modules
     depends_on:
       - backend
 
@@ -24,5 +27,7 @@ services:
       context: ../robot/ros2_ws
     environment:
       CLOUD_URL: http://backend:8000
+    volumes:
+      - ../robot/ros2_ws:/ros2_ws
     depends_on:
       - backend

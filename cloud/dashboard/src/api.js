@@ -22,8 +22,8 @@ export const login = (email, password) =>
 export const getDevices = () =>
   api.get('/devices').then(r => r.data);
 
-export const addDevice = (device_name) =>
-  api.post('/devices', { device_name }).then(r => r.data);
+export const addDevice = (device_name, robot_type) =>
+  api.post('/devices', { device_name, robot_type }).then(r => r.data);
 
 export const deleteDevice = (id) =>
   api.delete(`/devices/${id}`).then(r => r.data);

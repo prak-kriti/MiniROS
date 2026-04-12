@@ -13,6 +13,7 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 
 class DeviceCreate(BaseModel):
     device_name: str
+    robot_type: str = 'LFR'
 
 
 class DeviceDataCreate(BaseModel):
@@ -25,6 +26,7 @@ def _fmt_device(d):
     return {
         "id": str(d["_id"]),
         "device_name": d["device_name"],
+        "robot_type": d.get("robot_type", "LFR"),
         "user_id": d["user_id"],
         "created_at": d["created_at"],
     }
@@ -42,6 +44,7 @@ async def list_devices(db=Depends(get_db), user=Depends(get_current_user)):
 async def add_device(req: DeviceCreate, db=Depends(get_db), user=Depends(get_current_user)):
     doc = {
         "device_name": req.device_name,
+        "robot_type": req.robot_type,
         "user_id": user["id"],
         "created_at": datetime.utcnow(),
     }
@@ -49,6 +52,7 @@ async def add_device(req: DeviceCreate, db=Depends(get_db), user=Depends(get_cur
     return {
         "id": str(result.inserted_id),
         "device_name": req.device_name,
+        "robot_type": req.robot_type,
         "user_id": user["id"],
         "created_at": doc["created_at"],
     }

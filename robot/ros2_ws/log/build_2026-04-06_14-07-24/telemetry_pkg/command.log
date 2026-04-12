@@ -1,2 +1,0 @@
-Invoking command in '/mnt/c/Users/hp/MiniROS/robot/ros2_ws/build/telemetry_pkg': /usr/bin/cmake /mnt/c/Users/hp/MiniROS/robot/ros2_ws/src/telemetry_pkg -DCATKIN_INSTALL_INTO_PREFIX_ROOT=0 -DCMAKE_INSTALL_PREFIX=/mnt/c/Users/hp/MiniROS/robot/ros2_ws/install/telemetry_pkg
-Invoked command in '/mnt/c/Users/hp/MiniROS/robot/ros2_ws/build/telemetry_pkg' returned '1': /usr/bin/cmake /mnt/c/Users/hp/MiniROS/robot/ros2_ws/src/telemetry_pkg -DCATKIN_INSTALL_INTO_PREFIX_ROOT=0 -DCMAKE_INSTALL_PREFIX=/mnt/c/Users/hp/MiniROS/robot/ros2_ws/install/telemetry_pkg

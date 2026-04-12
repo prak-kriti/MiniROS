@@ -30,7 +30,6 @@ export default function Navbar() {
 
         <nav className="nav-links">
           <button className={`nav-chip ${at('/devices') ? 'active' : ''}`} onClick={() => navigate('/devices')}>Devices</button>
-          <button className={`nav-chip ${at('/dashboard') ? 'active' : ''}`} onClick={() => navigate('/dashboard')}>Live Dashboard</button>
           <button className={`nav-chip ${at('/devices/add') ? 'active' : ''}`} onClick={() => navigate('/devices/add')}>Register Robot</button>
         </nav>
 

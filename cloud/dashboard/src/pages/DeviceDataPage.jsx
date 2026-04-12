@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDeviceData, getDevices } from '../api';
+import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import DeliveryDashboard from '../components/DeliveryDashboard';
+import LFRDashboard from '../components/LFRDashboard';
+import DroneDashboard from '../components/DroneDashboard';
+import SurveillanceDashboard from '../components/SurveillanceDashboard';
 
 export default function DeviceDataPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [device, setDevice] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +63,10 @@ export default function DeviceDataPage() {
 
         {tab === 'live' && (
           <section className="tab-panel panel">
-            <DeliveryDashboard deviceName={device?.device_name} />
+            {device?.robot_type === 'Drone' && <DroneDashboard deviceName={device.device_name} />}
+            {device?.robot_type === 'Surveillance' && <SurveillanceDashboard deviceName={device.device_name} />}
+            {device?.robot_type === 'Delivery' && <DeliveryDashboard deviceId={id} userId={user?.id || user?.email} />}
+            {(!device?.robot_type || device?.robot_type === 'LFR') && <LFRDashboard deviceName={device?.device_name} />}
           </section>
         )}
 
