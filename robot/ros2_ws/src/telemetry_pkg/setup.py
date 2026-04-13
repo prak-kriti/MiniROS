@@ -24,6 +24,7 @@ setup(
             'delivery_robot_publisher = telemetry_pkg.delivery_robot_publisher:main',
             'command_subscriber = telemetry_pkg.command_subscriber:main',
             'bridge_agent = telemetry_pkg.bridge_agent:main',
+            'receiver_node = telemetry_pkg.receiver_node:main',
         ],
     },
 )

@@ -23,6 +23,9 @@ telemetry_history = deque(maxlen=500)
 pending_commands: dict = {}
 connected_clients: List[WebSocket] = []
 
+# Latest sensor reading from NodeMCU/ESP8266
+latest_sensor: dict = {"ir": [0, 0, 0, 0, 0]}
+
 ai_analyzer = AIAnalyzer()
 
 
@@ -48,6 +51,22 @@ app.add_middleware(
 
 app.include_router(auth_router.router)
 app.include_router(devices_router.router)
+
+
+# ── NodeMCU sensor relay ──────────────────────────────────────────────────────
+
+@app.post("/sensor")
+async def receive_sensor(data: dict):
+    """ESP8266/NodeMCU POSTs raw IR sensor data here: {"ir": [0,0,1,0,0]}"""
+    global latest_sensor
+    latest_sensor = data
+    return {"status": "ok"}
+
+
+@app.get("/sensor")
+def get_sensor():
+    """ROS2 receiver_node polls this to get the latest NodeMCU reading"""
+    return latest_sensor
 
 
 # ── Telemetry (robot → cloud) ─────────────────────────────────────────────────

@@ -44,6 +44,7 @@ services:
       - .env
     environment:
       CLOUD_URL: ${CLOUD_URL}
+      BACKEND_URL: ${CLOUD_URL}
     depends_on:
       - backend
 
