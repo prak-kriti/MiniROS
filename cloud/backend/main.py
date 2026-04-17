@@ -102,9 +102,13 @@ async def receive_sensor(data: dict):
 
 
 @app.get("/sensor")
-def get_sensor(device_id: str = "lfr_001"):
-    """ROS2 receiver_node polls this with its device_id to get the latest reading"""
-    return latest_sensor.get(device_id, {"ir": [0, 0, 0, 0, 0]})
+def get_sensor(device_id: str = None):
+    """ROS2 receiver_node polls this — returns specific device or most recently updated"""
+    if device_id and device_id in latest_sensor:
+        return latest_sensor[device_id]
+    if latest_sensor:
+        return list(latest_sensor.values())[-1]
+    return {"ir": [0, 0, 0, 0, 0]}
 
 
 # ── Telemetry (robot → cloud) ─────────────────────────────────────────────────
