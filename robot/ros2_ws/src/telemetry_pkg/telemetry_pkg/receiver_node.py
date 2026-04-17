@@ -16,8 +16,7 @@ import json, time, requests, os
 
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
-DEVICE_ID   = os.getenv('DEVICE_ID', 'lfr_001')
-SENSOR_URL  = BACKEND_URL + f'/sensor?device_id={DEVICE_ID}'
+SENSOR_URL  = BACKEND_URL + '/sensor'
 
 
 class LFRRealSensor(Node):
@@ -42,7 +41,7 @@ class LFRRealSensor(Node):
         self.lap = 0
         self.pid_integral = 0.0
 
-        self.get_logger().info(f'Real Sensor Node running — polling {SENSOR_URL}')
+        self.get_logger().info(f'Real Sensor Node — polling {SENSOR_URL}')
 
     def handle_command(self, msg):
         try:
@@ -128,7 +127,7 @@ class LFRRealSensor(Node):
 
         payload = {
             'timestamp': time.time(),
-            'robot_id': DEVICE_ID,
+            'robot_id': 'live',
             'ir_sensors': sensors,
             'line_state': line_state,
             'pid_error': error,

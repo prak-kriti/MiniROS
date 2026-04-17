@@ -25,6 +25,7 @@ connected_clients: List[WebSocket] = []
 
 # Latest sensor reading per device — keyed by device_id
 latest_sensor: dict = {}  # { device_id: {"ir": [...]} }
+latest_ir: list = [0, 0, 0, 0, 0]  # most-recent IR across all devices
 
 ai_analyzer = AIAnalyzer()
 
@@ -64,7 +65,8 @@ async def receive_sensor(data: dict):
     - Stores raw sensor data in MongoDB
     - Updates latest_sensor so receiver_node can poll it
     """
-    global latest_sensor
+    global latest_sensor, latest_ir
+    latest_ir   = data.get("ir", latest_ir)  # update before auth check
     api_key     = data.get("api_key", "")
     device_name = data.get("device_name", "unnamed_device")
 
@@ -106,9 +108,7 @@ def get_sensor(device_id: str = None):
     """ROS2 receiver_node polls this — returns specific device or most recently updated"""
     if device_id and device_id in latest_sensor:
         return latest_sensor[device_id]
-    if latest_sensor:
-        return list(latest_sensor.values())[-1]
-    return {"ir": [0, 0, 0, 0, 0]}
+    return {"ir": latest_ir}
 
 
 # ── Telemetry (robot → cloud) ─────────────────────────────────────────────────

@@ -45,7 +45,6 @@ services:
     environment:
       CLOUD_URL: ${CLOUD_URL}
       BACKEND_URL: ${CLOUD_URL}
-      DEVICE_ID: ${DEVICE_ID:-lfr_001}
     depends_on:
       - backend
 
