@@ -20,7 +20,7 @@ export default function LFRDashboard({ deviceName }) {
   useEffect(() => {
     if (!lastMessage) return;
     const { type, data: d } = lastMessage;
-    if (type === 'telemetry' && d?.robot_id === 'lfr_001') {
+    if (type === 'telemetry' && d?.ir_sensors) {
       setData({
         sensors: d.ir_sensors ?? [0, 0, 0, 0, 0],
         lineState: d.line_state ?? '—',
