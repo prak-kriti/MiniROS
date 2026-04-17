@@ -5,8 +5,14 @@
 const char* ssid     = "G_608";
 const char* password = "srmcem@12345";
 
-// POST to /sensor — NOT /telemetry
-const char* server = "http://192.168.68.149:8000/sensor";
+// ── Device identity ───────────────────────────────────────────────────────────
+// 1. Sign up at http://13.63.247.80:5173
+// 2. Copy your API Key from the dashboard profile/settings
+// 3. Paste it below — device registers automatically on first boot
+const char* api_key     = "YOUR_API_KEY";    // from dashboard → Profile → API Key
+const char* device_name = "my_robot_1";      // any name you want
+
+const char* server = "http://13.63.247.80:8000/sensor";
 
 // IR sensor pins
 int sensorPins[5] = {D0, D1, D2, D3, D4};
@@ -46,8 +52,10 @@ void loop() {
     ir[i] = digitalRead(sensorPins[i]);
   }
 
-  // Build JSON payload
-  String payload = "{\"ir\":[";
+  // Build JSON payload — api_key identifies the user, device_name identifies the robot
+  String payload = "{\"api_key\":\"" + String(api_key) + "\","
+                   "\"device_name\":\"" + String(device_name) + "\","
+                   "\"ir\":[";
   for (int i = 0; i < 5; i++) {
     payload += String(ir[i]);
     if (i < 4) payload += ",";

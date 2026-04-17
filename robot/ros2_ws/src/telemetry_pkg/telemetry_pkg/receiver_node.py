@@ -16,7 +16,8 @@ import json, time, requests, os
 
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
-SENSOR_URL = BACKEND_URL + '/sensor'
+DEVICE_ID   = os.getenv('DEVICE_ID', 'lfr_001')
+SENSOR_URL  = BACKEND_URL + f'/sensor?device_id={DEVICE_ID}'
 
 
 class LFRRealSensor(Node):
@@ -127,7 +128,7 @@ class LFRRealSensor(Node):
 
         payload = {
             'timestamp': time.time(),
-            'robot_id': 'lfr_001',
+            'robot_id': DEVICE_ID,
             'ir_sensors': sensors,
             'line_state': line_state,
             'pid_error': error,

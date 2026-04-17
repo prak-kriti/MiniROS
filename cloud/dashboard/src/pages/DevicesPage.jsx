@@ -61,6 +61,39 @@ export default function DevicesPage() {
           </div>
         </section>
 
+        {/* API Key banner — user copies this into NodeMCU firmware */}
+        <section className="panel" style={{ marginBottom: '24px', padding: '20px 24px' }}>
+          <span className="eyebrow">Device Connection</span>
+          <h3 style={{ marginTop: '8px', marginBottom: '4px' }}>Your API Key</h3>
+          <p className="page-subtitle" style={{ marginBottom: '12px' }}>
+            Put this key in your NodeMCU firmware. Your device will appear here automatically on first boot.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <code style={{
+              background: 'var(--surface-2, #1e1e2e)',
+              padding: '8px 14px',
+              borderRadius: '6px',
+              fontSize: '0.9rem',
+              letterSpacing: '0.05em',
+              flex: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {user?.api_key || 'Log out and log in again to see your API key'}
+            </code>
+            <button
+              className="ghost-button"
+              onClick={() => {
+                navigator.clipboard.writeText(user?.api_key || '');
+                alert('API Key copied!');
+              }}
+            >
+              Copy
+            </button>
+          </div>
+        </section>
+
         <div className="page-header" style={{ marginBottom: '18px' }}>
           <div>
             <h2 className="page-title" style={{ fontSize: '2rem' }}>My Devices</h2>

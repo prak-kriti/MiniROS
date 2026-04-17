@@ -6,6 +6,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
   });
+  // api_key is stored inside the user object
 
   const saveAuth = (token, userData) => {
     localStorage.setItem('token', token);

@@ -14,7 +14,7 @@ from typing import List
 
 from models import TelemetryData, CommandRequest
 from ai_module import AIAnalyzer
-from database import connect_db, close_db  # noqa: F401
+from database import connect_db, close_db, get_db  # noqa: F401
 from routers import auth as auth_router
 from routers import devices as devices_router
 
@@ -23,8 +23,8 @@ telemetry_history = deque(maxlen=500)
 pending_commands: dict = {}
 connected_clients: List[WebSocket] = []
 
-# Latest sensor reading from NodeMCU/ESP8266
-latest_sensor: dict = {"ir": [0, 0, 0, 0, 0]}
+# Latest sensor reading per device — keyed by device_id
+latest_sensor: dict = {}  # { device_id: {"ir": [...]} }
 
 ai_analyzer = AIAnalyzer()
 
@@ -57,16 +57,54 @@ app.include_router(devices_router.router)
 
 @app.post("/sensor")
 async def receive_sensor(data: dict):
-    """ESP8266/NodeMCU POSTs raw IR sensor data here: {"ir": [0,0,1,0,0]}"""
+    """
+    NodeMCU POSTs here: {"api_key": "mrk_xxx", "device_name": "my_robot", "ir": [0,0,1,0,0]}
+    - Authenticates user via api_key
+    - Auto-creates the device if it doesn't exist yet
+    - Stores raw sensor data in MongoDB
+    - Updates latest_sensor so receiver_node can poll it
+    """
     global latest_sensor
-    latest_sensor = data
-    return {"status": "ok"}
+    api_key     = data.get("api_key", "")
+    device_name = data.get("device_name", "unnamed_device")
+
+    db   = get_db()
+    user = await db.users.find_one({"api_key": api_key})
+    if not user:
+        return {"status": "error", "message": "invalid api_key"}
+
+    user_id = str(user["_id"])
+
+    # Find or auto-create device by name for this user
+    device = await db.devices.find_one({"user_id": user_id, "device_name": device_name})
+    if not device:
+        result = await db.devices.insert_one({
+            "device_name": device_name,
+            "robot_type": "LFR",
+            "user_id": user_id,
+            "created_at": datetime.utcnow(),
+        })
+        device_id = str(result.inserted_id)
+    else:
+        device_id = str(device["_id"])
+
+    # Update in-memory latest for receiver_node polling
+    latest_sensor[device_id] = {**data, "device_id": device_id}
+
+    # Persist to MongoDB
+    await db.device_data.insert_one({
+        "device_id": device_id,
+        "payload": data,
+        "timestamp": datetime.utcnow(),
+    })
+
+    return {"status": "ok", "device_id": device_id, "device_name": device_name}
 
 
 @app.get("/sensor")
-def get_sensor():
-    """ROS2 receiver_node polls this to get the latest NodeMCU reading"""
-    return latest_sensor
+def get_sensor(device_id: str = "lfr_001"):
+    """ROS2 receiver_node polls this with its device_id to get the latest reading"""
+    return latest_sensor.get(device_id, {"ir": [0, 0, 0, 0, 0]})
 
 
 # ── Telemetry (robot → cloud) ─────────────────────────────────────────────────
