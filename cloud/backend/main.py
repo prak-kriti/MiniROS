@@ -4,8 +4,9 @@ FastAPI Cloud Backend
 - Devices CRUD + device data storage via MongoDB
 - Telemetry: receives from robot, broadcasts via WebSocket, runs AI analysis
 """
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import httpx
 from contextlib import asynccontextmanager
 import json
 from datetime import datetime
@@ -171,6 +172,18 @@ async def broadcast(data: dict):
             dead.append(client)
     for c in dead:
         connected_clients.remove(c)
+
+
+# ── Camera proxy (fetches frame from local IP camera, avoids browser CORS) ────
+
+@app.get("/camera/frame")
+async def camera_frame(url: str):
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"{url}/shot.jpg")
+            return Response(content=r.content, media_type="image/jpeg")
+    except Exception:
+        raise HTTPException(status_code=503, detail="Camera unavailable")
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
